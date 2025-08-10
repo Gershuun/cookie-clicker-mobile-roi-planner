@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cookie Clicker Mobile ROI Planner (Full Buildings)</title>
+<title>Cookie Clicker Mobile ROI Planner (Full Buildings · Editable Fix)</title>
 <style>
-  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; }
+  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; --ok:#059669; }
   *{box-sizing:border-box} body{margin:0;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);background:var(--bg)}
   .wrap{max-width:980px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
   .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -14,17 +14,20 @@
   h2{font-size:18px;margin:0 0 10px}
   label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
   input,select{height:40px;border:1px solid var(--br);border-radius:10px;padding:0 10px;width:100%}
+  input[type="number"]{appearance:textfield;-moz-appearance:textfield}
+  input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{appearance:none;margin:0}
   .grid{display:grid;gap:8px}
   .btn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--br);background:#fff}
   .btn.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
   .muted{color:var(--muted)} .small{font-size:12px}
   .pill{padding:2px 8px;border:1px solid var(--br);border-radius:999px;font-size:12px}
+  .note{background:#ecfeff;border:1px dashed #bae6fd;padding:8px;border-radius:10px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="row" style="justify-content:space-between">
-    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Full Buildings)</span></h1>
+    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Full Buildings · Editable Fix)</span></h1>
     <div class="row">
       <button class="btn" id="btnExport">Export JSON</button>
       <button class="btn" id="btnReset">Reset</button>
@@ -34,10 +37,10 @@
   <div class="card">
     <h2>Overview</h2>
     <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr))">
-      <div><label>Bank (cookies)</label><input id="bank" inputmode="numeric"></div>
+      <div><label>Bank (cookies)</label><input id="bank" type="number" inputmode="numeric" step="1" min="0"></div>
       <div><label>Total CPS (computed)</label><div id="totalCps" class="pill">0 /s</div></div>
-      <div><label>Milk % (0–100)</label><input id="milk" inputmode="decimal"></div>
-      <div><label>Extra Global Multiplier</label><input id="extra" inputmode="decimal"></div>
+      <div><label>Milk % (0–100)</label><input id="milk" type="number" inputmode="decimal" step="0.1" min="0"></div>
+      <div><label>Extra Global Multiplier</label><input id="extra" type="number" inputmode="decimal" step="0.01" min="0"></div>
       <div class="small muted" style="display:flex;align-items:end">Kittens scale with Milk. Use Extra Global for buffs.</div>
     </div>
   </div>
@@ -50,7 +53,7 @@
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <h2>Buildings</h2>
-      <button class="btn" id="addB">Add building</button>
+      <div class="note small">Tip: Tap the <b>Owned</b> number and type. It updates instantly.</div>
     </div>
     <div class="small muted row" style="gap:16px">
       <div style="flex:1.2">Name</div><div style="flex:.8">Owned</div><div style="flex:.8">Base Cost</div><div style="flex:.8">Base CPS</div><div style="flex:.8">Growth</div><div>—</div>
@@ -73,7 +76,7 @@
 </div>
 
 <script>
-// --- Full buildings list (19) ---
+// Full buildings list (19)
 const DEFAULT_BUILDINGS = [
   { id: "cursor", name: "Cursor", baseCost: 15, baseCps: 0.1, growth: 1.15, owned: 0, enabled: true },
   { id: "grandma", name: "Grandma", baseCost: 100, baseCps: 1, growth: 1.15, owned: 0, enabled: true },
@@ -96,10 +99,6 @@ const DEFAULT_BUILDINGS = [
   { id: "cortex", name: "Cortex Baker", baseCost: 1900000000000000000000, baseCps: 43000000000000, growth: 1.15, owned: 0, enabled: true }
 ];
 
-// --- Minimal ROI engine ---
-const LS_KEY = "cc-mobile-roi-standalone-full";
-const COSTS_KEY = LS_KEY + "-costs";
-
 const STARTER_UPGRADES = [
   { id:"reinforced-finger", name:"Reinforced index finger", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
   { id:"carpal-cream", name:"Carpal tunnel prevention cream", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
@@ -108,6 +107,9 @@ const STARTER_UPGRADES = [
   { id:"kitten-helpers", name:"Kitten helpers", kind:"kitten", value:0.1, purchased:false },
 ];
 
+const LS_KEY = "cc-mobile-roi-standalone-full-fix";
+const COSTS_KEY = LS_KEY + "-costs";
+
 const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
   bank: 0, extraGlobalMultiplier: 1, milkPercent: 0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES
 };
@@ -115,6 +117,7 @@ let state = S0;
 let upgradeCosts = JSON.parse(localStorage.getItem(COSTS_KEY) || "{}");
 
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); localStorage.setItem(COSTS_KEY, JSON.stringify(upgradeCosts)); }
+function parseNum(v, fallback=0){ const n = Number(v); return Number.isFinite(n) ? n : fallback; }
 
 function fmt(n){
   if(!isFinite(n)) return "—";
@@ -187,21 +190,22 @@ function renderBuildings(){
     const row=document.createElement("div");
     row.className="row"; row.style.cssText="border:1px solid var(--br);border-radius:12px;padding:8px;gap:8px";
     row.innerHTML=`
-      <input value="${b.name}">
-      <input inputmode="numeric" value="${b.owned}">
-      <input inputmode="decimal" value="${b.baseCost}">
-      <input inputmode="decimal" value="${b.baseCps}">
-      <input inputmode="decimal" value="${b.growth}">
+      <input value="${b.name}" aria-label="Building name">
+      <input type="number" inputmode="numeric" min="0" step="1" value="${b.owned}" aria-label="Owned">
+      <input type="number" inputmode="decimal" min="0" step="1" value="${b.baseCost}" aria-label="Base cost">
+      <input type="number" inputmode="decimal" min="0" step="0.001" value="${b.baseCps}" aria-label="Base CPS">
+      <input type="number" inputmode="decimal" min="1" step="0.01" value="${b.growth}" aria-label="Growth">
       <div class="row"><span class="small muted">Next: ${fmt(nextCost(b))}</span>
         <label class="small muted"><input type="checkbox" ${b.enabled?"checked":""}> enabled</label>
         <button class="btn">✕</button>
       </div>`;
     const [nameEl,ownEl,costEl,cpsEl,growEl]=row.querySelectorAll("input");
     nameEl.oninput=e=>{ b.name=e.target.value; save(); update(); };
-    ownEl.oninput=e=>{ b.owned=Number(e.target.value||0); save(); update(); };
-    costEl.oninput=e=>{ b.baseCost=Number(e.target.value||0); save(); update(); };
-    cpsEl.oninput=e=>{ b.baseCps=Number(e.target.value||0); save(); update(); };
-    growEl.oninput=e=>{ b.growth=Number(e.target.value||1.15); save(); update(); };
+    ownEl.oninput=e=>{ b.owned=parseNum(e.target.value,0); if(b.owned<0)b.owned=0; save(); update(); };
+    ownEl.onchange=e=>{ if(e.target.value==="") { b.owned=0; ownEl.value=0; save(); update(); } };
+    costEl.oninput=e=>{ b.baseCost=parseNum(e.target.value,b.baseCost||0); save(); update(); };
+    cpsEl.oninput=e=>{ b.baseCps=parseNum(e.target.value,b.baseCps||0); save(); update(); };
+    growEl.oninput=e=>{ b.growth=parseNum(e.target.value,1.15)||1.15; save(); update(); };
     row.querySelector("input[type=checkbox]").onchange=e=>{ b.enabled=e.target.checked; save(); update(); };
     row.querySelector("button.btn").onclick=()=>{ state.buildings=state.buildings.filter(x=>x!==b); save(); update(); };
     el.appendChild(row);
@@ -213,31 +217,31 @@ function renderUpgrades(){
     const row=document.createElement("div");
     row.className="row"; row.style.cssText="border:1px solid var(--br);border-radius:12px;padding:8px;gap:8px";
     row.innerHTML=`
-      <input value="${u.name}">
-      <select>
-        <option value="globalMultiplier">globalMultiplier</option>
-        <option value="buildingMultiplier">buildingMultiplier</option>
-        <option value="flatCps">flatCps</option>
-        <option value="cursorFingers">cursorFingers</option>
-        <option value="kitten">kitten</option>
-        <option value="goldenCookie">goldenCookie</option>
+      <input value="${u.name}" aria-label="Upgrade name">
+      <select aria-label="Kind">
+        <option value="globalMultiplier"${u.kind==="globalMultiplier"?" selected":""}>globalMultiplier</option>
+        <option value="buildingMultiplier"${u.kind==="buildingMultiplier"?" selected":""}>buildingMultiplier</option>
+        <option value="flatCps"${u.kind==="flatCps"?" selected":""}>flatCps</option>
+        <option value="cursorFingers"${u.kind==="cursorFingers"?" selected":""}>cursorFingers</option>
+        <option value="kitten"${u.kind==="kitten"?" selected":""}>kitten</option>
+        <option value="goldenCookie"${u.kind==="goldenCookie"?" selected":""}>goldenCookie</option>
       </select>
-      <input inputmode="decimal" value="${u.value}">
-      <select ${u.kind!=="buildingMultiplier"?"disabled":""}>
+      <input type="number" inputmode="decimal" step="0.01" value="${u.value}" aria-label="Value">
+      <select ${u.kind!=="buildingMultiplier"?"disabled":""} aria-label="Affects">
         <option value="">—</option>
         ${state.buildings.map(b=>`<option value="${b.id}" ${u.affects===b.id?"selected":""}>${b.name}</option>`).join("")}
       </select>
       <label class="small muted"><input type="checkbox" ${u.purchased?"checked":""}> purchased</label>
-      <input inputmode="decimal" value="${upgradeCosts[u.id]||""}" placeholder="cost">
+      <input type="number" inputmode="decimal" step="1" value="${upgradeCosts[u.id]||""}" placeholder="cost" aria-label="Cost">
       <div class="row"><button class="btn pri">Mark purchased</button><button class="btn">✕</button></div>
     `;
     const inputs=row.querySelectorAll("input,select");
     inputs[0].oninput=e=>{ u.name=e.target.value; save(); update(); };
     inputs[1].onchange=e=>{ u.kind=e.target.value; save(); update(); };
-    inputs[2].oninput=e=>{ u.value=Number(e.target.value||0); save(); update(); };
+    inputs[2].oninput=e=>{ u.value=parseNum(e.target.value,u.value||0); save(); update(); };
     inputs[3].onchange=e=>{ u.affects=e.target.value||undefined; save(); update(); };
     inputs[4].onchange=e=>{ u.purchased=e.target.checked; save(); update(); };
-    inputs[5].oninput=e=>{ upgradeCosts[u.id]=Number(e.target.value||0); save(); update(); };
+    inputs[5].oninput=e=>{ upgradeCosts[u.id]=parseNum(e.target.value,0); save(); update(); };
     row.querySelector("button.pri").onclick=()=>{ u.purchased=true; save(); update(); };
     row.querySelectorAll("button.btn")[1].onclick=()=>{ state.upgrades=state.upgrades.filter(x=>x!==u); save(); update(); };
     el.appendChild(row);
@@ -251,10 +255,9 @@ function update(){
   document.getElementById("totalCps").textContent = fmt(totalCps()) + " /s";
   renderTop3(); renderBuildings(); renderUpgrades();
 }
-document.getElementById("bank").oninput=e=>{ state.bank=Number(e.target.value||0); save(); update(); };
-document.getElementById("milk").oninput=e=>{ state.milkPercent=Math.max(0,Number(e.target.value||0))/100; save(); update(); };
-document.getElementById("extra").oninput=e=>{ state.extraGlobalMultiplier=Number(e.target.value||1); save(); update(); };
-document.getElementById("addB").onclick=()=>{ state.buildings.push({id:crypto.randomUUID(),name:"New Building",baseCost:1,baseCps:1,growth:1.15,owned:0,enabled:true}); save(); update(); };
+document.getElementById("bank").oninput=e=>{ state.bank=parseNum(e.target.value,0); save(); update(); };
+document.getElementById("milk").oninput=e=>{ state.milkPercent=Math.max(0,parseNum(e.target.value,0))/100; save(); update(); };
+document.getElementById("extra").oninput=e=>{ state.extraGlobalMultiplier=parseNum(e.target.value,1); save(); update(); };
 document.getElementById("addU").onclick=()=>{ state.upgrades.push({id:crypto.randomUUID(),name:"New Upgrade",kind:"globalMultiplier",value:1.1,purchased:false}); save(); update(); };
 document.getElementById("btnExport").onclick=()=>{
   const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
