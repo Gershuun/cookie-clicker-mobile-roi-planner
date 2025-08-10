@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cookie Clicker Mobile ROI Planner (Standalone)</title>
+<style>
+  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; }
+  *{box-sizing:border-box} body{margin:0;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);background:var(--bg)}
+  .wrap{max-width:920px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card{background:var(--card);border:1px solid var(--br);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  h1{font-size:22px;margin:0 0 8px}
+  h2{font-size:18px;margin:0 0 10px}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  input,select,textarea{height:40px;border:1px solid var(--br);border-radius:10px;padding:0 10px;width:100%}
+  textarea{height:160px;font-family:ui-monospace,Menlo,Consolas,monospace;padding:10px}
+  .grid{display:grid;gap:8px}
+  .btn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--br);background:#fff}
+  .btn.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .muted{color:var(--muted)} .small{font-size:12px}
+  .table{display:grid;gap:8px}
+  .rowg{display:grid;grid-template-columns:1.2fr .8fr .8fr .8fr .8fr auto;gap:8px;align-items:center}
+  .rowu{display:grid;grid-template-columns:1.2fr .9fr .7fr .9fr .8fr .9fr auto;gap:8px;align-items:center}
+  @media (max-width:720px){
+    .rowg{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}
+    .rowu{grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto}
+  }
+  .pill{padding:2px 8px;border:1px solid var(--br);border-radius:999px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between">
+    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Standalone, v0.3s)</span></h1>
+    <div class="row">
+      <button class="btn" id="btnImport">Import save</button>
+      <button class="btn" id="btnExport">Export JSON</button>
+      <button class="btn" id="btnReset">Reset</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Overview</h2>
+    <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+      <div><label>Bank (cookies)</label><input id="bank" inputmode="numeric"></div>
+      <div><label>Total CPS (computed)</label><div id="totalCps" class="pill">0 /s</div></div>
+      <div><label>Milk % (0–100)</label><input id="milk" inputmode="decimal"></div>
+      <div><label>Extra Global Multiplier</label><input id="extra" inputmode="decimal"></div>
+      <div class="small muted" style="display:flex;align-items:end">Kittens scale with Milk. Use Extra Global for buffs.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Next Best Buys (by payback hours)</h2>
+    <div id="top3" class="grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2>Buildings</h2>
+      <button class="btn" id="addB">Add building</button>
+    </div>
+    <div class="small muted row" style="gap:16px">
+      <div style="flex:1.2">Name</div><div style="flex:.8">Owned</div><div style="flex:.8">Base Cost</div><div style="flex:.8">Base CPS</div><div style="flex:.8">Growth</div><div>—</div>
+    </div>
+    <div id="buildings" class="grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2>Upgrades</h2>
+      <button class="btn" id="addU">Add upgrade</button>
+    </div>
+    <div class="small muted row" style="gap:16px">
+      <div style="flex:1.2">Name</div><div style="flex:.9">Kind</div><div style="flex:.7">Value</div><div style="flex:.9">Affects</div><div style="flex:.8">Purchased</div><div style="flex:.9">Cost</div><div>—</div>
+    </div>
+    <div id="upgrades" class="grid"></div>
+  </div>
+
+  <div class="small muted" style="text-align:center;padding:8px 0">All data saved locally · Works offline</div>
+</div>
+
+<!-- Import modal -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);place-items:end center;">
+  <div style="background:#fff;width:100%;max-width:860px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
+    <div class="row" style="justify-content:space-between">
+      <h3>Import Save</h3>
+      <button class="btn" id="closeM">Close</button>
+    </div>
+    <p class="small muted">Paste your <b>Cookie Clicker mobile export</b> (base64, often ends with <code>!END!</code>) or a planner JSON export.</p>
+    <textarea id="importBox" placeholder="Paste here…"></textarea>
+    <div class="row"><button class="btn pri" id="parseM">Parse</button><button class="btn" id="applyM">Apply</button></div>
+    <pre id="preview" class="small" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:8px;background:#f1f5f9;padding:8px;border-radius:8px"></pre>
+  </div>
+</div>
+
+<script>
+const LS_KEY = "cc-mobile-roi-standalone";
+const COSTS_KEY = LS_KEY + "-costs";
+const BUILDING_ORDER = ["cursor","grandma","farm","mine","factory","bank","temple","wizard","shipment","alchemy","portal","time","condenser","prism","chancemaker","fractal","javascript","idleverse","cortex"];
+
+const DEFAULT_BUILDINGS = [
+  { id:"cursor", name:"Cursor", baseCost:15, baseCps:0.1, growth:1.15, owned:0, enabled:true },
+  { id:"grandma", name:"Grandma", baseCost:100, baseCps:1, growth:1.15, owned:0, enabled:true },
+  { id:"farm", name:"Farm", baseCost:1100, baseCps:8, growth:1.15, owned:0, enabled:true },
+  { id:"mine", name:"Mine", baseCost:12000, baseCps:47, growth:1.15, owned:0, enabled:true },
+];
+
+const STARTER_UPGRADES = [
+  { id:"reinforced-finger", name:"Reinforced index finger", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
+  { id:"carpal-cream", name:"Carpal tunnel prevention cream", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
+  { id:"ambidextrous", name:"Ambidextrous", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
+
+  { id:"thousand-fingers", name:"Thousand fingers", kind:"cursorFingers", value:0.1, mult:1, purchased:false },
+  { id:"kitten-helpers", name:"Kitten helpers", kind:"kitten", value:0.1, purchased:false },
+];
+
+const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
+  bank: 0, extraGlobalMultiplier: 1, milkPercent: 0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES
+};
+let state = S0;
+let upgradeCosts = JSON.parse(localStorage.getItem(COSTS_KEY) || "{}");
+
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); localStorage.setItem(COSTS_KEY, JSON.stringify(upgradeCosts)); }
+
+function fmt(n){
+  if(!isFinite(n)) return "—";
+  const a=Math.abs(n); if(a<1e4) return n.toLocaleString();
+  const u=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","Dc"]; let i=0, x=n;
+  while(Math.abs(x)>=1000 && i<u.length-1){ x/=1000; i++; }
+  return x.toFixed(3)+u[i];
+}
+function nextCost(b){ return b.baseCost * Math.pow(b.growth||1.15, b.owned); }
+
+function totalFlatCps(){ return state.upgrades.filter(u=>u.purchased && u.kind==="flatCps").reduce((s,u)=>s+u.value,0); }
+
+function buildingCps(b){
+  const perMult = state.upgrades.filter(u=>u.purchased && u.kind==="buildingMultiplier" && u.affects===b.id).reduce((m,u)=>m*u.value,1);
+  const kittenMult = state.upgrades.filter(u=>u.purchased && u.kind==="kitten").reduce((m,u)=>m*(1 + (state.milkPercent * (u.value||0))),1);
+  const globalMult = state.upgrades.filter(u=>u.purchased && u.kind==="globalMultiplier").reduce((m,u)=>m*u.value,1) * (state.extraGlobalMultiplier||1) * kittenMult;
+  let cps = b.owned * b.baseCps * perMult * globalMult;
+  if(b.id==="cursor"){
+    const nonCursor = state.buildings.filter(x=>x.id!=="cursor").reduce((s,x)=>s+x.owned,0);
+    const fingers = state.upgrades.filter(u=>u.purchased && u.kind==="cursorFingers");
+    if(fingers.length){
+      const base = fingers.reduce((s,u)=>s+(u.value||0),0);
+      const mult = fingers.reduce((m,u)=>m*(u.mult||1),1);
+      const perCursorBonus = nonCursor * base * mult;
+      cps += b.owned * perCursorBonus * globalMult;
+    }
+  }
+  return cps;
+}
+function totalCps(){
+  const flat = totalFlatCps();
+  const sum = state.buildings.filter(b=>b.enabled).reduce((s,b)=>s+buildingCps(b),0);
+  return sum + flat;
+}
+
+function candidates(){
+  const out=[]; const base=totalCps();
+  for(const b of state.buildings.filter(x=>x.enabled)){
+    const cost=nextCost(b);
+    const draft=JSON.parse(JSON.stringify(state));
+    const i=draft.buildings.findIndex(x=>x.id===b.id); draft.buildings[i].owned++;
+    const delta=Math.max(0, (draft.buildings.filter(x=>x.enabled).reduce((s,x)=>s+buildingCps(x),0)+totalFlatCps()) - base);
+    const pay=delta>0? cost/delta/3600 : Infinity;
+    out.push({id:"b-"+b.id,label:"Buy 1 "+b.name,type:"building",cost,deltaCps:delta,paybackHours:pay,apply:(d)=>{const nd=JSON.parse(JSON.stringify(d)); nd.buildings[i].owned++; return nd;}});
+  }
+  for(const u of state.upgrades.filter(u=>!u.purchased)){
+    const cost=upgradeCosts[u.id]; if(!cost||cost<=0) continue;
+    const draft=JSON.parse(JSON.stringify(state));
+    const i=draft.upgrades.findIndex(x=>x.id===u.id); draft.upgrades[i].purchased=true;
+    const delta=Math.max(0, (draft.buildings.filter(x=>x.enabled).reduce((s,x)=>s+buildingCps(x),0)+totalFlatCps()) - base);
+    const pay=delta>0? cost/delta/3600 : Infinity;
+    out.push({id:"u-"+u.id,label:"Buy upgrade: "+u.name,type:"upgrade",cost,deltaCps:delta,paybackHours:pay,apply:(d)=>{const nd=JSON.parse(JSON.stringify(d)); nd.upgrades[i].purchased=true; return nd;}});
+  }
+  return out.sort((a,b)=>a.paybackHours-b.paybackHours);
+}
+
+function renderTop3(){
+  const el=document.getElementById("top3"); el.innerHTML="";
+  const list=candidates().slice(0,3);
+  if(!list.length){ el.innerHTML='<div class="small muted">No candidates yet — add buildings or upgrades below.</div>'; return; }
+  for(const c of list){
+    const row=document.createElement("div");
+    row.className="row"; row.style.cssText="justify-content:space-between;border:1px solid var(--br);border-radius:12px;padding:10px;";
+    row.innerHTML=`<div><div><b>${c.label}</b></div><div class="small muted">ΔCPS ${fmt(c.deltaCps)} — Cost ${fmt(c.cost)} — Payback ${c.paybackHours===Infinity?"—":c.paybackHours.toFixed(3)+" h"}</div></div>
+                   <button class="btn pri">Mark purchased</button>`;
+    row.querySelector("button").onclick=()=>{ state=c.apply(state); save(); update(); };
+    el.appendChild(row);
+  }
+}
+
+function renderBuildings(){
+  const el=document.getElementById("buildings"); el.innerHTML="";
+  for(const b of state.buildings){
+    const row=document.createElement("div");
+    row.className="row"; row.style.cssText="border:1px solid var(--br);border-radius:12px;padding:8px;gap:8px";
+    row.innerHTML=`
+      <input value="${b.name}">
+      <input inputmode="numeric" value="${b.owned}">
+      <input inputmode="decimal" value="${b.baseCost}">
+      <input inputmode="decimal" value="${b.baseCps}">
+      <input inputmode="decimal" value="${b.growth}">
+      <div class="row"><span class="small muted">Next: ${fmt(nextCost(b))}</span>
+        <label class="small muted"><input type="checkbox" ${b.enabled?"checked":""}> enabled</label>
+        <button class="btn">✕</button>
+      </div>`;
+    const [nameEl,ownEl,costEl,cpsEl,growEl]=row.querySelectorAll("input");
+    nameEl.oninput=e=>{ b.name=e.target.value; save(); update(); };
+    ownEl.oninput=e=>{ b.owned=Number(e.target.value||0); save(); update(); };
+    costEl.oninput=e=>{ b.baseCost=Number(e.target.value||0); save(); update(); };
+    cpsEl.oninput=e=>{ b.baseCps=Number(e.target.value||0); save(); update(); };
+    growEl.oninput=e=>{ b.growth=Number(e.target.value||1.15); save(); update(); };
+    row.querySelector("input[type=checkbox]").onchange=e=>{ b.enabled=e.target.checked; save(); update(); };
+    row.querySelector("button.btn").onclick=()=>{ state.buildings=state.buildings.filter(x=>x!==b); save(); update(); };
+    el.appendChild(row);
+  }
+}
+
+function renderUpgrades(){
+  const el=document.getElementById("upgrades"); el.innerHTML="";
+  for(const u of state.upgrades){
+    const row=document.createElement("div");
+    row.className="row"; row.style.cssText="border:1px solid var(--br);border-radius:12px;padding:8px;gap:8px";
+    row.innerHTML=`
+      <input value="${u.name}">
+      <select>
+        <option value="globalMultiplier">globalMultiplier</option>
+        <option value="buildingMultiplier">buildingMultiplier</option>
+        <option value="flatCps">flatCps</option>
+        <option value="cursorFingers">cursorFingers</option>
+        <option value="kitten">kitten</option>
+        <option value="goldenCookie">goldenCookie</option>
+      </select>
+      <input inputmode="decimal" value="${u.value}">
+      <select ${u.kind!=="buildingMultiplier"?"disabled":""}>
+        <option value="">—</option>
+        ${state.buildings.map(b=>`<option value="${b.id}" ${u.affects===b.id?"selected":""}>${b.name}</option>`).join("")}
+      </select>
+      <label class="small muted"><input type="checkbox" ${u.purchased?"checked":""}> purchased</label>
+      <input inputmode="decimal" value="${upgradeCosts[u.id]||""}" placeholder="cost">
+      <div class="row"><button class="btn pri">Mark purchased</button><button class="btn">✕</button></div>
+    `;
+    const inputs=row.querySelectorAll("input,select");
+    inputs[0].oninput=e=>{ u.name=e.target.value; save(); update(); };
+    inputs[1].onchange=e=>{ u.kind=e.target.value; save(); update(); };
+    inputs[2].oninput=e=>{ u.value=Number(e.target.value||0); save(); update(); };
+    inputs[3].onchange=e=>{ u.affects=e.target.value||undefined; save(); update(); };
+    inputs[4].onchange=e=>{ u.purchased=e.target.checked; save(); update(); };
+    inputs[5].oninput=e=>{ upgradeCosts[u.id]=Number(e.target.value||0); save(); update(); };
+    row.querySelector("button.pri").onclick=()=>{ u.purchased=true; save(); update(); };
+    row.querySelectorAll("button.btn")[1].onclick=()=>{ state.upgrades=state.upgrades.filter(x=>x!==u); save(); update(); };
+    el.appendChild(row);
+  }
+}
+
+function update(){
+  document.getElementById("bank").value = state.bank;
+  document.getElementById("milk").value = (state.milkPercent||0)*100;
+  document.getElementById("extra").value = state.extraGlobalMultiplier;
+  document.getElementById("totalCps").textContent = fmt(totalCps()) + " /s";
+  renderTop3(); renderBuildings(); renderUpgrades();
+}
+document.getElementById("bank").oninput=e=>{ state.bank=Number(e.target.value||0); save(); update(); };
+document.getElementById("milk").oninput=e=>{ state.milkPercent=Math.max(0,Number(e.target.value||0))/100; save(); update(); };
+document.getElementById("extra").oninput=e=>{ state.extraGlobalMultiplier=Number(e.target.value||1); save(); update(); };
+document.getElementById("addB").onclick=()=>{ state.buildings.push({id:crypto.randomUUID(),name:"New Building",baseCost:1,baseCps:1,growth:1.15,owned:0,enabled:true}); save(); update(); };
+document.getElementById("addU").onclick=()=>{ state.upgrades.push({id:crypto.randomUUID(),name:"New Upgrade",kind:"globalMultiplier",value:1.1,purchased:false}); save(); update(); };
+
+// Import/Export
+const modal=document.getElementById("modal");
+document.getElementById("btnImport").onclick=()=>{ modal.style.display="grid"; };
+document.getElementById("closeM").onclick=()=>{ modal.style.display="none"; document.getElementById("importBox").value=""; document.getElementById("preview").textContent=""; };
+document.getElementById("parseM").onclick=()=>{
+  const raw=(document.getElementById("importBox")).value.trim();
+  let info=null, decoded=null, error=null;
+  try{ const obj=JSON.parse(raw); if(obj && obj.buildings && obj.upgrades){ info={type:"planner-json", ok:true, summary:"Planner JSON detected"}; } }catch{}
+  if(!info){
+    try{
+      const t=raw.replace(/!END!$/i,"").replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
+      decoded=atob(t);
+      // Milk
+      let milk=null; const mm=decoded.match(/milk(?:Percent|Progress)?[=:]\s*([0-9]*\.?[0-9]+)/i); if(mm){ const m=Number(mm[1]); milk = m>1? m/100 : m; }
+      // Buildings vector
+      let vec=[]; const vm=decoded.match(/buildings?\s*[:=]\s*\[([^\]]+)\]/i) || decoded.match(/buildings?\s*[:=]\s*([0-9,;:\s]+)/i);
+      if(vm){ const inner=(vm[1]||vm[0]).replace(/[^0-9,;:\s]/g," "); vec=inner.split(/[,;:\s]+/).filter(Boolean).map(Number); }
+      const bmap={}; for(let i=0;i<Math.min(vec.length,BUILDING_ORDER.length);i++){ bmap[BUILDING_ORDER[i]]=vec[i]||0; }
+      // Upgrades by name (very light heuristic; user can adjust)
+      const known=["Reinforced index finger","Carpal tunnel prevention cream","Ambidextrous","Thousand fingers","Kitten helpers"];
+      const found=known.filter(n=>decoded.toLowerCase().includes(n.toLowerCase()));
+      info={type:"cc-save", milkPercent:milk, buildings:Object.keys(bmap).length?bmap:undefined, upgradesFound:found};
+    }catch{ error="Could not decode. Paste the exact export string."; }
+  }
+  const prev=document.getElementById("preview");
+  if(error){ prev.textContent="Error: "+error; return; }
+  prev.textContent=JSON.stringify(info, null, 2);
+  prev.dataset.info = JSON.stringify(info);
+};
+document.getElementById("applyM").onclick=()=>{
+  const prev=document.getElementById("preview");
+  if(!prev.dataset.info) return;
+  const info=JSON.parse(prev.dataset.info);
+  if(info.type==="planner-json"){
+    const raw=(document.getElementById("importBox")).value.trim();
+    try{ state=JSON.parse(raw); save(); update(); modal.style.display="none"; }catch{}
+    return;
+  }
+  if(info.milkPercent!=null) state.milkPercent=info.milkPercent;
+  if(info.buildings){ state.buildings = state.buildings.map(b=>({...b, owned: Number(info.buildings[b.id] ?? b.owned)||0 })); }
+  if(info.upgradesFound){ state.upgrades = state.upgrades.map(u=>({...u, purchased: info.upgradesFound.includes(u.name) ? true : u.purchased })); }
+  save(); update(); modal.style.display="none";
+};
+document.getElementById("btnExport").onclick=()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="cc-mobile-roi-planner.json"; a.click(); URL.revokeObjectURL(url);
+};
+document.getElementById("btnReset").onclick=()=>{
+  if(!confirm("Reset all data?")) return;
+  localStorage.removeItem(LS_KEY); localStorage.removeItem(COSTS_KEY);
+  state={ bank:0, extraGlobalMultiplier:1, milkPercent:0, buildings:DEFAULT_BUILDINGS, upgrades:STARTER_UPGRADES };
+  upgradeCosts={}; save(); update();
+};
+
+update();
+</script>
+</body>
+</html>
