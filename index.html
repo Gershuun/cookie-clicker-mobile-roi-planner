@@ -3,37 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cookie Clicker Mobile ROI Planner (Vault + Profiles)</title>
+<title>Cookie Clicker Mobile ROI Planner (Full Buildings)</title>
 <style>
-  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; --ok:#059669; --warn:#dc2626; --alt:#7c3aed; }
+  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; }
   *{box-sizing:border-box} body{margin:0;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);background:var(--bg)}
-  .wrap{max-width:940px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+  .wrap{max-width:980px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
   .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .card{background:var(--card);border:1px solid var(--br);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
   h1{font-size:22px;margin:0 0 8px}
   h2{font-size:18px;margin:0 0 10px}
   label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
-  input,select,textarea{height:40px;border:1px solid var(--br);border-radius:10px;padding:0 10px;width:100%}
-  textarea{height:160px;font-family:ui-monospace,Menlo,Consolas,monospace;padding:10px}
+  input,select{height:40px;border:1px solid var(--br);border-radius:10px;padding:0 10px;width:100%}
   .grid{display:grid;gap:8px}
   .btn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--br);background:#fff}
   .btn.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
-  .btn.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
-  .btn.warn{background:var(--warn);color:#fff;border-color:var(--warn)}
-  .btn.alt{background:var(--alt);color:#fff;border-color:var(--alt)}
   .muted{color:var(--muted)} .small{font-size:12px}
   .pill{padding:2px 8px;border:1px solid var(--br);border-radius:999px;font-size:12px}
-  .vaultItem{display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:8px;align-items:center;border:1px solid var(--br);border-radius:12px;padding:8px}
-  .codePreview{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="row" style="justify-content:space-between">
-    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Vault + Profiles)</span></h1>
+    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Full Buildings)</span></h1>
     <div class="row">
-      <button class="btn" id="btnVault">Save vault</button>
-      <button class="btn" id="btnImport">Import save</button>
       <button class="btn" id="btnExport">Export JSON</button>
       <button class="btn" id="btnReset">Reset</button>
     </div>
@@ -42,11 +34,11 @@
   <div class="card">
     <h2>Overview</h2>
     <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr))">
-      <div><label>Active profile</label><div id="activeProfile" class="pill">None</div></div>
+      <div><label>Bank (cookies)</label><input id="bank" inputmode="numeric"></div>
       <div><label>Total CPS (computed)</label><div id="totalCps" class="pill">0 /s</div></div>
       <div><label>Milk % (0–100)</label><input id="milk" inputmode="decimal"></div>
       <div><label>Extra Global Multiplier</label><input id="extra" inputmode="decimal"></div>
-      <div class="small muted" style="display:flex;align-items:end">Switch between profiles from the vault. Kittens scale with Milk.</div>
+      <div class="small muted" style="display:flex;align-items:end">Kittens scale with Milk. Use Extra Global for buffs.</div>
     </div>
   </div>
 
@@ -80,52 +72,33 @@
   <div class="small muted" style="text-align:center;padding:8px 0">All data saved locally · Works offline</div>
 </div>
 
-<!-- Import modal -->
-<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);place-items:end center;">
-  <div style="background:#fff;width:100%;max-width:900px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
-    <div class="row" style="justify-content:space-between">
-      <h3>Import Save</h3>
-      <button class="btn" id="closeM">Close</button>
-    </div>
-    <p class="small muted">Paste your <b>Cookie Clicker mobile export</b> (base64, often ends with <code>!END!</code>) or a planner JSON export.</p>
-    <textarea id="importBox" placeholder="Paste here…"></textarea>
-    <div class="row">
-      <button class="btn ok" id="saveRawM">Save code (no decoding)</button>
-      <button class="btn" id="parseM">Preview decode (beta)</button>
-      <button class="btn pri" id="applyPlannerM">Apply planner JSON</button>
-    </div>
-    <pre id="preview" class="small" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:8px;background:#f1f5f9;padding:8px;border-radius:8px"></pre>
-  </div>
-</div>
-
-<!-- Vault modal -->
-<div id="vault" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);place-items:end center;">
-  <div style="background:#fff;width:100%;max-width:900px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
-    <div class="row" style="justify-content:space-between">
-      <h3>Saved Codes & Profiles</h3>
-      <button class="btn" id="closeV">Close</button>
-    </div>
-    <div class="grid" id="vaultList"></div>
-    <div class="small muted" style="margin-top:8px">Codes & profiles are stored only on this device. You can switch profiles without decoding.</div>
-  </div>
-</div>
-
 <script>
-// --- Minimal ROI engine ---
-const LS_KEY = "cc-mobile-roi-vault-profiles";
-const COSTS_KEY = LS_KEY + "-costs";
-const VAULT_KEY = LS_KEY + "-codes";
-const PROFILES_KEY = LS_KEY + "-profiles"; // map: codeId -> PlannerState
-const ACTIVE_KEY = LS_KEY + "-active";     // current active codeId
-
-const BUILDING_ORDER = ["cursor","grandma","farm","mine","factory","bank","temple","wizard","shipment","alchemy","portal","time","condenser","prism","chancemaker","fractal","javascript","idleverse","cortex"];
-
+// --- Full buildings list (19) ---
 const DEFAULT_BUILDINGS = [
-  { id:"cursor", name:"Cursor", baseCost:15, baseCps:0.1, growth:1.15, owned:0, enabled:true },
-  { id:"grandma", name:"Grandma", baseCost:100, baseCps:1, growth:1.15, owned:0, enabled:true },
-  { id:"farm", name:"Farm", baseCost:1100, baseCps:8, growth:1.15, owned:0, enabled:true },
-  { id:"mine", name:"Mine", baseCost:12000, baseCps:47, growth:1.15, owned:0, enabled:true },
+  { id: "cursor", name: "Cursor", baseCost: 15, baseCps: 0.1, growth: 1.15, owned: 0, enabled: true },
+  { id: "grandma", name: "Grandma", baseCost: 100, baseCps: 1, growth: 1.15, owned: 0, enabled: true },
+  { id: "farm", name: "Farm", baseCost: 1100, baseCps: 8, growth: 1.15, owned: 0, enabled: true },
+  { id: "mine", name: "Mine", baseCost: 12000, baseCps: 47, growth: 1.15, owned: 0, enabled: true },
+  { id: "factory", name: "Factory", baseCost: 130000, baseCps: 260, growth: 1.15, owned: 0, enabled: true },
+  { id: "bank", name: "Bank", baseCost: 1400000, baseCps: 1400, growth: 1.15, owned: 0, enabled: true },
+  { id: "temple", name: "Temple", baseCost: 20000000, baseCps: 7800, growth: 1.15, owned: 0, enabled: true },
+  { id: "wizard", name: "Wizard Tower", baseCost: 330000000, baseCps: 44000, growth: 1.15, owned: 0, enabled: true },
+  { id: "shipment", name: "Shipment", baseCost: 5100000000, baseCps: 260000, growth: 1.15, owned: 0, enabled: true },
+  { id: "alchemy", name: "Alchemy Lab", baseCost: 75000000000, baseCps: 1600000, growth: 1.15, owned: 0, enabled: true },
+  { id: "portal", name: "Portal", baseCost: 1000000000000, baseCps: 10000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "time", name: "Time Machine", baseCost: 14000000000000, baseCps: 65000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "condenser", name: "Antimatter Condenser", baseCost: 170000000000000, baseCps: 430000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "prism", name: "Prism", baseCost: 2100000000000000, baseCps: 2900000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "chancemaker", name: "Chancemaker", baseCost: 26000000000000000, baseCps: 21000000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "fractal", name: "Fractal Engine", baseCost: 310000000000000000, baseCps: 150000000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "javascript", name: "Javascript Console", baseCost: 7100000000000000000, baseCps: 1000000000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "idleverse", name: "Idleverse", baseCost: 120000000000000000000, baseCps: 6500000000000, growth: 1.15, owned: 0, enabled: true },
+  { id: "cortex", name: "Cortex Baker", baseCost: 1900000000000000000000, baseCps: 43000000000000, growth: 1.15, owned: 0, enabled: true }
 ];
+
+// --- Minimal ROI engine ---
+const LS_KEY = "cc-mobile-roi-standalone-full";
+const COSTS_KEY = LS_KEY + "-costs";
 
 const STARTER_UPGRADES = [
   { id:"reinforced-finger", name:"Reinforced index finger", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
@@ -135,25 +108,13 @@ const STARTER_UPGRADES = [
   { id:"kitten-helpers", name:"Kitten helpers", kind:"kitten", value:0.1, purchased:false },
 ];
 
-const EMPTY_STATE = { bank:0, extraGlobalMultiplier:1, milkPercent:0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES };
-
-const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || EMPTY_STATE;
+const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
+  bank: 0, extraGlobalMultiplier: 1, milkPercent: 0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES
+};
 let state = S0;
 let upgradeCosts = JSON.parse(localStorage.getItem(COSTS_KEY) || "{}");
-let vault = JSON.parse(localStorage.getItem(VAULT_KEY) || "[]"); // {id,label,createdAt,code}
-let profiles = JSON.parse(localStorage.getItem(PROFILES_KEY) || "{}"); // id -> state
-let activeId = localStorage.getItem(ACTIVE_KEY) || "";
 
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); localStorage.setItem(COSTS_KEY, JSON.stringify(upgradeCosts)); }
-function saveVault(){ localStorage.setItem(VAULT_KEY, JSON.stringify(vault)); }
-function saveProfiles(){ localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles)); }
-function setActive(id){ activeId = id; localStorage.setItem(ACTIVE_KEY, id); document.getElementById("activeProfile").textContent = activeLabel(); }
-
-function activeLabel(){
-  if(!activeId) return "None";
-  const item = vault.find(v=>v.id===activeId);
-  return (item?.label || "Untitled") + " (profile)";
-}
 
 function fmt(n){
   if(!isFinite(n)) return "—";
@@ -207,21 +168,6 @@ function candidates(){
   return out.sort((a,b)=>a.paybackHours-b.paybackHours);
 }
 
-// --- Heuristic decode helpers (optional) ---
-function previewDecode(raw){
-  try{
-    const t=raw.replace(/!END!$/i,"").replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
-    const decoded=atob(t);
-    // Try to sniff milk + buildings vector
-    let milk=null; const mm=decoded.match(/milk(?:Percent|Progress)?[=:]\s*([0-9]*\.?[0-9]+)/i); if(mm){ const m=Number(mm[1]); milk = m>1? m/100 : m; }
-    let vec=[]; const vm=decoded.match(/buildings?\s*[:=]\s*\[([^\]]+)\]/i) || decoded.match(/buildings?\s*[:=]\s*([0-9,;:\s]+)/i);
-    if(vm){ const inner=(vm[1]||vm[0]).replace(/[^0-9,;:\s]/g," "); vec=inner.split(/[,;:\s]+/).filter(Boolean).map(Number); }
-    const bmap={}; for(let i=0;i<Math.min(vec.length,BUILDING_ORDER.length);i++){ bmap[BUILDING_ORDER[i]]=vec[i]||0; }
-    return { decoded, milkPercent:milk, buildings:Object.keys(bmap).length?bmap:undefined };
-  }catch(e){ return { error: "Could not decode" }; }
-}
-
-// --- UI renderers ---
 function renderTop3(){
   const el=document.getElementById("top3"); el.innerHTML="";
   const list=candidates().slice(0,3);
@@ -298,88 +244,14 @@ function renderUpgrades(){
   }
 }
 
-// --- Vault & Profiles ---
-function openVault(){
-  const v=document.getElementById("vault"); v.style.display="grid";
-  renderVault();
-}
-function renderVault(){
-  const list=document.getElementById("vaultList"); list.innerHTML="";
-  if(!vault.length){ list.innerHTML='<div class="small muted">No codes saved yet.</div>'; return; }
-  for(const item of vault){
-    const row=document.createElement("div"); row.className="vaultItem";
-    const date=new Date(item.createdAt).toLocaleString();
-    const label=item.label||"Untitled";
-    const hasProfile = !!profiles[item.id];
-    row.innerHTML=`
-      <div>
-        <div><b>${label}</b> <span class="small muted">(${date})</span></div>
-        <div class="small codePreview">${item.code}</div>
-      </div>
-      <button class="btn" data-act="copy">Copy</button>
-      <button class="btn" data-act="rename">Rename</button>
-      <button class="btn warn" data-act="del">Delete</button>
-      <button class="btn ${hasProfile?'alt':'ok'}" data-act="${hasProfile?'applyProfile':'saveProfile'}">${hasProfile?'Apply profile':'Save current as profile'}</button>
-      <button class="btn pri" data-act="decodeApply">Decode → Apply (beta)</button>
-    `;
-    row.querySelector('[data-act="copy"]').onclick=()=>{ navigator.clipboard.writeText(item.code); row.querySelector('[data-act="copy"]').textContent="Copied!"; setTimeout(()=>row.querySelector('[data-act="copy"]').textContent="Copy",1200); };
-    row.querySelector('[data-act="rename"]').onclick=()=>{ const n=prompt("New label:", label)||label; item.label=n; saveVault(); renderVault(); };
-    row.querySelector('[data-act="del"]').onclick=()=>{ if(confirm("Delete this saved code?")){ vault=vault.filter(x=>x.id!==item.id); delete profiles[item.id]; saveVault(); saveProfiles(); renderVault(); } };
-    row.querySelector('[data-act="saveProfile"]').onclick=()=>{ profiles[item.id]=JSON.parse(JSON.stringify(state)); saveProfiles(); renderVault(); };
-    row.querySelector('[data-act="applyProfile"]').onclick=()=>{ if(!profiles[item.id]) return; state=JSON.parse(JSON.stringify(profiles[item.id])); save(); setActive(item.id); update(); };
-    row.querySelector('[data-act="decodeApply"]').onclick=()=>{
-      const prev = previewDecode(item.code);
-      if(prev && !prev.error){
-        // Apply minimal fields
-        if(prev.milkPercent!=null) state.milkPercent = prev.milkPercent;
-        if(prev.buildings){
-          state.buildings = state.buildings.map(b=>({...b, owned: Number(prev.buildings[b.id] ?? b.owned)||0 }));
-        }
-        save(); profiles[item.id]=JSON.parse(JSON.stringify(state)); saveProfiles(); setActive(item.id); update();
-        alert("Applied decoded milk/buildings to app and saved as this code's profile.");
-      }else{
-        alert("Couldn't decode this code. You can still 'Save current as profile' to link a manual setup to this code.");
-      }
-    };
-    list.appendChild(row);
-  }
-}
-
-document.getElementById("btnVault").onclick=()=>openVault();
-document.getElementById("closeV").onclick=()=>{ document.getElementById("vault").style.display="none"; };
-
-// Import/Export + Save Code
-const modal=document.getElementById("modal");
-document.getElementById("btnImport").onclick=()=>{ modal.style.display="grid"; };
-document.getElementById("closeM").onclick=()=>{ modal.style.display="none"; document.getElementById("importBox").value=""; document.getElementById("preview").textContent=""; };
-document.getElementById("saveRawM").onclick=()=>{
-  const raw=(document.getElementById("importBox")).value.trim(); if(!raw){ alert("Paste a code first."); return; }
-  const label=prompt("Label for this code? (optional)",""); 
-  const id=crypto.randomUUID();
-  vault.unshift({ id, label: label||"", createdAt: Date.now(), code: raw });
-  saveVault();
-  document.getElementById("preview").textContent="Saved to vault.";
-};
-document.getElementById("parseM").onclick=()=>{
-  const raw=(document.getElementById("importBox")).value.trim();
-  try{ const obj=JSON.parse(raw); document.getElementById("preview").textContent = "Planner JSON detected. Use 'Apply planner JSON'."; return; }catch{}
-  const prev = previewDecode(raw);
-  if(prev.error){ document.getElementById("preview").textContent = "Could not decode. That's okay — save it to your vault and link a profile."; return; }
-  document.getElementById("preview").textContent = JSON.stringify({type:"cc-save", preview: prev.decoded.slice(0,200) + (prev.decoded.length>200?"…":""), milkPercent: prev.milkPercent, buildings: prev.buildings}, null, 2);
-};
-document.getElementById("applyPlannerM").onclick=()=>{
-  const raw=(document.getElementById("importBox")).value.trim();
-  try{ const obj=JSON.parse(raw); state=obj; save(); update(); modal.style.display="none"; }catch{ alert("Paste a planner JSON export to apply. For Cookie Clicker codes, save to vault and use 'Decode → Apply (beta)' from the vault list."); }
-};
-
-// Existing buttons
 function update(){
-  document.getElementById("activeProfile").textContent = activeLabel();
+  document.getElementById("bank").value = state.bank || 0;
   document.getElementById("milk").value = (state.milkPercent||0)*100;
-  document.getElementById("extra").value = state.extraGlobalMultiplier;
+  document.getElementById("extra").value = state.extraGlobalMultiplier || 1;
   document.getElementById("totalCps").textContent = fmt(totalCps()) + " /s";
   renderTop3(); renderBuildings(); renderUpgrades();
 }
+document.getElementById("bank").oninput=e=>{ state.bank=Number(e.target.value||0); save(); update(); };
 document.getElementById("milk").oninput=e=>{ state.milkPercent=Math.max(0,Number(e.target.value||0))/100; save(); update(); };
 document.getElementById("extra").oninput=e=>{ state.extraGlobalMultiplier=Number(e.target.value||1); save(); update(); };
 document.getElementById("addB").onclick=()=>{ state.buildings.push({id:crypto.randomUUID(),name:"New Building",baseCost:1,baseCps:1,growth:1.15,owned:0,enabled:true}); save(); update(); };
@@ -391,10 +263,10 @@ document.getElementById("btnExport").onclick=()=>{
 document.getElementById("btnReset").onclick=()=>{
   if(!confirm("Reset all data?")) return;
   localStorage.removeItem(LS_KEY); localStorage.removeItem(COSTS_KEY);
-  state=JSON.parse(JSON.stringify(EMPTY_STATE)); save(); update();
+  state={ bank:0, extraGlobalMultiplier:1, milkPercent:0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES };
+  save(); update();
 };
 
-// initialize
 update();
 </script>
 </body>
