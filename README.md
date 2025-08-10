@@ -1,14 +1,10 @@
-# Cookie Clicker Mobile ROI Planner (Standalone)
-Single-file version — no build tools, just open `index.html` or upload it to GitHub Pages.
+# Cookie Clicker Mobile ROI Planner — Standalone + Save Vault
+Single-file web app (just `index.html`). Paste your Cookie Clicker **save code TXT** and press **Save code** to store it locally. No decoding required.
 
-## How to use
-- Open `index.html` in your browser (double-click) **or** upload it to a repo and enable **GitHub Pages**.
-- Tap **Import save** to paste your mobile export string (base64, often ends with `!END!`).
+## Use on phone
+1. Open your live GitHub Pages URL or just open `index.html` locally.
+2. Tap **Save vault** to view previously saved codes.
+3. Tap **Import save** → paste your TXT → **Save code (no decoding)** to stash it for later.
+4. Use **Export JSON** if you want to back up the planner’s settings (separate from your raw TXT codes).
 
-## Deploy free with GitHub Pages (drag & drop)
-1. Create a new repo on GitHub (public).
-2. Upload `index.html` (just this one file).
-3. In repo **Settings → Pages**, set **Source: GitHub Actions** (or **Branch: main / root** if offered).
-4. Your site will be live at `https://<you>.github.io/<repo>/`.
-
-No Node. No Vite. No install.
+Everything is saved locally (localStorage). No accounts, no servers.

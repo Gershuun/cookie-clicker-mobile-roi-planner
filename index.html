@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cookie Clicker Mobile ROI Planner (Standalone)</title>
+<title>Cookie Clicker Mobile ROI Planner (Standalone + Save Vault)</title>
 <style>
-  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; }
+  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; --ok:#059669; --warn:#dc2626; }
   *{box-sizing:border-box} body{margin:0;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);background:var(--bg)}
   .wrap{max-width:920px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
   .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -18,22 +18,20 @@
   .grid{display:grid;gap:8px}
   .btn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--br);background:#fff}
   .btn.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .btn.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .btn.warn{background:var(--warn);color:#fff;border-color:var(--warn)}
   .muted{color:var(--muted)} .small{font-size:12px}
-  .table{display:grid;gap:8px}
-  .rowg{display:grid;grid-template-columns:1.2fr .8fr .8fr .8fr .8fr auto;gap:8px;align-items:center}
-  .rowu{display:grid;grid-template-columns:1.2fr .9fr .7fr .9fr .8fr .9fr auto;gap:8px;align-items:center}
-  @media (max-width:720px){
-    .rowg{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}
-    .rowu{grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr auto}
-  }
   .pill{padding:2px 8px;border:1px solid var(--br);border-radius:999px;font-size:12px}
+  .vaultItem{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;border:1px solid var(--br);border-radius:12px;padding:8px}
+  .codePreview{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="row" style="justify-content:space-between">
-    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Standalone, v0.3s)</span></h1>
+    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Standalone + Save Vault)</span></h1>
     <div class="row">
+      <button class="btn" id="btnVault">Save vault</button>
       <button class="btn" id="btnImport">Import save</button>
       <button class="btn" id="btnExport">Export JSON</button>
       <button class="btn" id="btnReset">Reset</button>
@@ -90,14 +88,32 @@
     </div>
     <p class="small muted">Paste your <b>Cookie Clicker mobile export</b> (base64, often ends with <code>!END!</code>) or a planner JSON export.</p>
     <textarea id="importBox" placeholder="Paste here…"></textarea>
-    <div class="row"><button class="btn pri" id="parseM">Parse</button><button class="btn" id="applyM">Apply</button></div>
+    <div class="row">
+      <button class="btn pri" id="parseM">Parse</button>
+      <button class="btn ok" id="saveRawM">Save code (no decoding)</button>
+      <button class="btn" id="applyM">Apply</button>
+    </div>
     <pre id="preview" class="small" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:8px;background:#f1f5f9;padding:8px;border-radius:8px"></pre>
   </div>
 </div>
 
+<!-- Vault modal -->
+<div id="vault" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);place-items:end center;">
+  <div style="background:#fff;width:100%;max-width:860px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
+    <div class="row" style="justify-content:space-between">
+      <h3>Saved Codes</h3>
+      <button class="btn" id="closeV">Close</button>
+    </div>
+    <div class="grid" id="vaultList"></div>
+    <div class="small muted" style="margin-top:8px">Codes are stored only on this device (localStorage). You can delete them anytime.</div>
+  </div>
+</div>
+
 <script>
-const LS_KEY = "cc-mobile-roi-standalone";
+// --- Minimal ROI engine (same as earlier standalone) ---
+const LS_KEY = "cc-mobile-roi-standalone-vault";
 const COSTS_KEY = LS_KEY + "-costs";
+const VAULT_KEY = LS_KEY + "-codes";
 const BUILDING_ORDER = ["cursor","grandma","farm","mine","factory","bank","temple","wizard","shipment","alchemy","portal","time","condenser","prism","chancemaker","fractal","javascript","idleverse","cortex"];
 
 const DEFAULT_BUILDINGS = [
@@ -111,7 +127,6 @@ const STARTER_UPGRADES = [
   { id:"reinforced-finger", name:"Reinforced index finger", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
   { id:"carpal-cream", name:"Carpal tunnel prevention cream", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
   { id:"ambidextrous", name:"Ambidextrous", kind:"buildingMultiplier", value:2, affects:"cursor", purchased:false },
-
   { id:"thousand-fingers", name:"Thousand fingers", kind:"cursorFingers", value:0.1, mult:1, purchased:false },
   { id:"kitten-helpers", name:"Kitten helpers", kind:"kitten", value:0.1, purchased:false },
 ];
@@ -121,8 +136,10 @@ const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
 };
 let state = S0;
 let upgradeCosts = JSON.parse(localStorage.getItem(COSTS_KEY) || "{}");
+let vault = JSON.parse(localStorage.getItem(VAULT_KEY) || "[]"); // {id, label, createdAt, code}
 
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); localStorage.setItem(COSTS_KEY, JSON.stringify(upgradeCosts)); }
+function saveVault(){ localStorage.setItem(VAULT_KEY, JSON.stringify(vault)); }
 
 function fmt(n){
   if(!isFinite(n)) return "—";
@@ -132,9 +149,7 @@ function fmt(n){
   return x.toFixed(3)+u[i];
 }
 function nextCost(b){ return b.baseCost * Math.pow(b.growth||1.15, b.owned); }
-
 function totalFlatCps(){ return state.upgrades.filter(u=>u.purchased && u.kind==="flatCps").reduce((s,u)=>s+u.value,0); }
-
 function buildingCps(b){
   const perMult = state.upgrades.filter(u=>u.purchased && u.kind==="buildingMultiplier" && u.affects===b.id).reduce((m,u)=>m*u.value,1);
   const kittenMult = state.upgrades.filter(u=>u.purchased && u.kind==="kitten").reduce((m,u)=>m*(1 + (state.milkPercent * (u.value||0))),1);
@@ -157,7 +172,6 @@ function totalCps(){
   const sum = state.buildings.filter(b=>b.enabled).reduce((s,b)=>s+buildingCps(b),0);
   return sum + flat;
 }
-
 function candidates(){
   const out=[]; const base=totalCps();
   for(const b of state.buildings.filter(x=>x.enabled)){
@@ -179,6 +193,7 @@ function candidates(){
   return out.sort((a,b)=>a.paybackHours-b.paybackHours);
 }
 
+// --- UI renderers ---
 function renderTop3(){
   const el=document.getElementById("top3"); el.innerHTML="";
   const list=candidates().slice(0,3);
@@ -192,7 +207,6 @@ function renderTop3(){
     el.appendChild(row);
   }
 }
-
 function renderBuildings(){
   const el=document.getElementById("buildings"); el.innerHTML="";
   for(const b of state.buildings){
@@ -219,7 +233,6 @@ function renderBuildings(){
     el.appendChild(row);
   }
 }
-
 function renderUpgrades(){
   const el=document.getElementById("upgrades"); el.innerHTML="";
   for(const u of state.upgrades){
@@ -257,6 +270,69 @@ function renderUpgrades(){
   }
 }
 
+// --- Save Vault (raw TXT, no decode) ---
+function openVault(){
+  const v=document.getElementById("vault"); v.style.display="grid";
+  const list=document.getElementById("vaultList"); list.innerHTML="";
+  if(!vault.length){ list.innerHTML='<div class="small muted">No codes saved yet.</div>'; return; }
+  for(const item of vault){
+    const row=document.createElement("div"); row.className="vaultItem";
+    const date=new Date(item.createdAt).toLocaleString();
+    const label=item.label||"Untitled";
+    row.innerHTML=`
+      <div>
+        <div><b>${label}</b> <span class="small muted">(${date})</span></div>
+        <div class="small codePreview">${item.code}</div>
+      </div>
+      <button class="btn" data-act="copy">Copy</button>
+      <button class="btn" data-act="rename">Rename</button>
+      <button class="btn warn" data-act="del">Delete</button>`;
+    row.querySelector('[data-act="copy"]').onclick=()=>{ navigator.clipboard.writeText(item.code); row.querySelector('[data-act="copy"]').textContent="Copied!"; setTimeout(()=>row.querySelector('[data-act="copy"]').textContent="Copy",1200); };
+    row.querySelector('[data-act="rename"]').onclick=()=>{ const n=prompt("New label:", label)||label; item.label=n; saveVault(); openVault(); };
+    row.querySelector('[data-act="del"]').onclick=()=>{ if(confirm("Delete this saved code?")){ vault=vault.filter(x=>x.id!==item.id); saveVault(); openVault(); } };
+    list.appendChild(row);
+  }
+}
+
+document.getElementById("btnVault").onclick=()=>openVault();
+document.getElementById("closeV").onclick=()=>{ document.getElementById("vault").style.display="none"; };
+
+// Import/Export + Save Code
+const modal=document.getElementById("modal");
+document.getElementById("btnImport").onclick=()=>{ modal.style.display="grid"; };
+document.getElementById("closeM").onclick=()=>{ modal.style.display="none"; document.getElementById("importBox").value=""; document.getElementById("preview").textContent=""; };
+document.getElementById("saveRawM").onclick=()=>{
+  const raw=(document.getElementById("importBox")).value.trim(); if(!raw){ alert("Paste a code first."); return; }
+  const label=prompt("Label for this code? (optional)",""); 
+  vault.unshift({ id: crypto.randomUUID(), label: label||"", createdAt: Date.now(), code: raw });
+  saveVault();
+  document.getElementById("preview").textContent="Saved to vault.";
+};
+document.getElementById("parseM").onclick=()=>{
+  const raw=(document.getElementById("importBox")).value.trim();
+  let info=null, decoded=null, error=null;
+  try{ const obj=JSON.parse(raw); if(obj && obj.buildings && obj.upgrades){ info={type:"planner-json", ok:true, summary:"Planner JSON detected"}; } }catch{}
+  if(!info){
+    try{
+      const t=raw.replace(/!END!$/i,"").replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
+      decoded=atob(t);
+      // Minimal heuristic preview only (no auto-apply required for vault feature)
+      info={type:"cc-save", preview: decoded.slice(0,200) + (decoded.length>200?"…":"")};
+    }catch{ error="Could not decode. That's okay — use 'Save code' to store it without decoding."; }
+  }
+  const prev=document.getElementById("preview");
+  if(error){ prev.textContent=error; return; }
+  prev.textContent=JSON.stringify(info, null, 2);
+};
+document.getElementById("applyM").onclick=()=>{
+  const prev=document.getElementById("preview");
+  if(!prev.textContent) return;
+  // For now, keep the same apply behavior as older standalone if JSON is pasted
+  const raw=(document.getElementById("importBox")).value.trim();
+  try{ const obj=JSON.parse(raw); state=obj; save(); update(); modal.style.display="none"; }catch{ alert("Only planner JSON can be applied directly here. To keep a code for later, use 'Save code'."); }
+};
+
+// Existing buttons
 function update(){
   document.getElementById("bank").value = state.bank;
   document.getElementById("milk").value = (state.milkPercent||0)*100;
@@ -269,50 +345,6 @@ document.getElementById("milk").oninput=e=>{ state.milkPercent=Math.max(0,Number
 document.getElementById("extra").oninput=e=>{ state.extraGlobalMultiplier=Number(e.target.value||1); save(); update(); };
 document.getElementById("addB").onclick=()=>{ state.buildings.push({id:crypto.randomUUID(),name:"New Building",baseCost:1,baseCps:1,growth:1.15,owned:0,enabled:true}); save(); update(); };
 document.getElementById("addU").onclick=()=>{ state.upgrades.push({id:crypto.randomUUID(),name:"New Upgrade",kind:"globalMultiplier",value:1.1,purchased:false}); save(); update(); };
-
-// Import/Export
-const modal=document.getElementById("modal");
-document.getElementById("btnImport").onclick=()=>{ modal.style.display="grid"; };
-document.getElementById("closeM").onclick=()=>{ modal.style.display="none"; document.getElementById("importBox").value=""; document.getElementById("preview").textContent=""; };
-document.getElementById("parseM").onclick=()=>{
-  const raw=(document.getElementById("importBox")).value.trim();
-  let info=null, decoded=null, error=null;
-  try{ const obj=JSON.parse(raw); if(obj && obj.buildings && obj.upgrades){ info={type:"planner-json", ok:true, summary:"Planner JSON detected"}; } }catch{}
-  if(!info){
-    try{
-      const t=raw.replace(/!END!$/i,"").replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
-      decoded=atob(t);
-      // Milk
-      let milk=null; const mm=decoded.match(/milk(?:Percent|Progress)?[=:]\s*([0-9]*\.?[0-9]+)/i); if(mm){ const m=Number(mm[1]); milk = m>1? m/100 : m; }
-      // Buildings vector
-      let vec=[]; const vm=decoded.match(/buildings?\s*[:=]\s*\[([^\]]+)\]/i) || decoded.match(/buildings?\s*[:=]\s*([0-9,;:\s]+)/i);
-      if(vm){ const inner=(vm[1]||vm[0]).replace(/[^0-9,;:\s]/g," "); vec=inner.split(/[,;:\s]+/).filter(Boolean).map(Number); }
-      const bmap={}; for(let i=0;i<Math.min(vec.length,BUILDING_ORDER.length);i++){ bmap[BUILDING_ORDER[i]]=vec[i]||0; }
-      // Upgrades by name (very light heuristic; user can adjust)
-      const known=["Reinforced index finger","Carpal tunnel prevention cream","Ambidextrous","Thousand fingers","Kitten helpers"];
-      const found=known.filter(n=>decoded.toLowerCase().includes(n.toLowerCase()));
-      info={type:"cc-save", milkPercent:milk, buildings:Object.keys(bmap).length?bmap:undefined, upgradesFound:found};
-    }catch{ error="Could not decode. Paste the exact export string."; }
-  }
-  const prev=document.getElementById("preview");
-  if(error){ prev.textContent="Error: "+error; return; }
-  prev.textContent=JSON.stringify(info, null, 2);
-  prev.dataset.info = JSON.stringify(info);
-};
-document.getElementById("applyM").onclick=()=>{
-  const prev=document.getElementById("preview");
-  if(!prev.dataset.info) return;
-  const info=JSON.parse(prev.dataset.info);
-  if(info.type==="planner-json"){
-    const raw=(document.getElementById("importBox")).value.trim();
-    try{ state=JSON.parse(raw); save(); update(); modal.style.display="none"; }catch{}
-    return;
-  }
-  if(info.milkPercent!=null) state.milkPercent=info.milkPercent;
-  if(info.buildings){ state.buildings = state.buildings.map(b=>({...b, owned: Number(info.buildings[b.id] ?? b.owned)||0 })); }
-  if(info.upgradesFound){ state.upgrades = state.upgrades.map(u=>({...u, purchased: info.upgradesFound.includes(u.name) ? true : u.purchased })); }
-  save(); update(); modal.style.display="none";
-};
 document.getElementById("btnExport").onclick=()=>{
   const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="cc-mobile-roi-planner.json"; a.click(); URL.revokeObjectURL(url);
