@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cookie Clicker Mobile ROI Planner (Standalone + Save Vault)</title>
+<title>Cookie Clicker Mobile ROI Planner (Vault + Profiles)</title>
 <style>
-  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; --ok:#059669; --warn:#dc2626; }
+  :root { color-scheme: light; --bg:#f8fafc; --card:#fff; --fg:#0f172a; --muted:#64748b; --br:#e2e8f0; --pri:#0369a1; --ok:#059669; --warn:#dc2626; --alt:#7c3aed; }
   *{box-sizing:border-box} body{margin:0;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--fg);background:var(--bg)}
-  .wrap{max-width:920px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+  .wrap{max-width:940px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
   .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .card{background:var(--card);border:1px solid var(--br);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
   h1{font-size:22px;margin:0 0 8px}
@@ -20,16 +20,17 @@
   .btn.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
   .btn.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
   .btn.warn{background:var(--warn);color:#fff;border-color:var(--warn)}
+  .btn.alt{background:var(--alt);color:#fff;border-color:var(--alt)}
   .muted{color:var(--muted)} .small{font-size:12px}
   .pill{padding:2px 8px;border:1px solid var(--br);border-radius:999px;font-size:12px}
-  .vaultItem{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;border:1px solid var(--br);border-radius:12px;padding:8px}
+  .vaultItem{display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:8px;align-items:center;border:1px solid var(--br);border-radius:12px;padding:8px}
   .codePreview{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="row" style="justify-content:space-between">
-    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Standalone + Save Vault)</span></h1>
+    <h1>Cookie Clicker Mobile ROI Planner <span class="small muted">(Vault + Profiles)</span></h1>
     <div class="row">
       <button class="btn" id="btnVault">Save vault</button>
       <button class="btn" id="btnImport">Import save</button>
@@ -41,11 +42,11 @@
   <div class="card">
     <h2>Overview</h2>
     <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr))">
-      <div><label>Bank (cookies)</label><input id="bank" inputmode="numeric"></div>
+      <div><label>Active profile</label><div id="activeProfile" class="pill">None</div></div>
       <div><label>Total CPS (computed)</label><div id="totalCps" class="pill">0 /s</div></div>
       <div><label>Milk % (0–100)</label><input id="milk" inputmode="decimal"></div>
       <div><label>Extra Global Multiplier</label><input id="extra" inputmode="decimal"></div>
-      <div class="small muted" style="display:flex;align-items:end">Kittens scale with Milk. Use Extra Global for buffs.</div>
+      <div class="small muted" style="display:flex;align-items:end">Switch between profiles from the vault. Kittens scale with Milk.</div>
     </div>
   </div>
 
@@ -81,7 +82,7 @@
 
 <!-- Import modal -->
 <div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);place-items:end center;">
-  <div style="background:#fff;width:100%;max-width:860px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
+  <div style="background:#fff;width:100%;max-width:900px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
     <div class="row" style="justify-content:space-between">
       <h3>Import Save</h3>
       <button class="btn" id="closeM">Close</button>
@@ -89,9 +90,9 @@
     <p class="small muted">Paste your <b>Cookie Clicker mobile export</b> (base64, often ends with <code>!END!</code>) or a planner JSON export.</p>
     <textarea id="importBox" placeholder="Paste here…"></textarea>
     <div class="row">
-      <button class="btn pri" id="parseM">Parse</button>
       <button class="btn ok" id="saveRawM">Save code (no decoding)</button>
-      <button class="btn" id="applyM">Apply</button>
+      <button class="btn" id="parseM">Preview decode (beta)</button>
+      <button class="btn pri" id="applyPlannerM">Apply planner JSON</button>
     </div>
     <pre id="preview" class="small" style="white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:8px;background:#f1f5f9;padding:8px;border-radius:8px"></pre>
   </div>
@@ -99,21 +100,24 @@
 
 <!-- Vault modal -->
 <div id="vault" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);place-items:end center;">
-  <div style="background:#fff;width:100%;max-width:860px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
+  <div style="background:#fff;width:100%;max-width:900px;border-radius:16px 16px 0 0;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.2)">
     <div class="row" style="justify-content:space-between">
-      <h3>Saved Codes</h3>
+      <h3>Saved Codes & Profiles</h3>
       <button class="btn" id="closeV">Close</button>
     </div>
     <div class="grid" id="vaultList"></div>
-    <div class="small muted" style="margin-top:8px">Codes are stored only on this device (localStorage). You can delete them anytime.</div>
+    <div class="small muted" style="margin-top:8px">Codes & profiles are stored only on this device. You can switch profiles without decoding.</div>
   </div>
 </div>
 
 <script>
-// --- Minimal ROI engine (same as earlier standalone) ---
-const LS_KEY = "cc-mobile-roi-standalone-vault";
+// --- Minimal ROI engine ---
+const LS_KEY = "cc-mobile-roi-vault-profiles";
 const COSTS_KEY = LS_KEY + "-costs";
 const VAULT_KEY = LS_KEY + "-codes";
+const PROFILES_KEY = LS_KEY + "-profiles"; // map: codeId -> PlannerState
+const ACTIVE_KEY = LS_KEY + "-active";     // current active codeId
+
 const BUILDING_ORDER = ["cursor","grandma","farm","mine","factory","bank","temple","wizard","shipment","alchemy","portal","time","condenser","prism","chancemaker","fractal","javascript","idleverse","cortex"];
 
 const DEFAULT_BUILDINGS = [
@@ -131,15 +135,25 @@ const STARTER_UPGRADES = [
   { id:"kitten-helpers", name:"Kitten helpers", kind:"kitten", value:0.1, purchased:false },
 ];
 
-const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || {
-  bank: 0, extraGlobalMultiplier: 1, milkPercent: 0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES
-};
+const EMPTY_STATE = { bank:0, extraGlobalMultiplier:1, milkPercent:0, buildings: DEFAULT_BUILDINGS, upgrades: STARTER_UPGRADES };
+
+const S0 = JSON.parse(localStorage.getItem(LS_KEY) || "null") || EMPTY_STATE;
 let state = S0;
 let upgradeCosts = JSON.parse(localStorage.getItem(COSTS_KEY) || "{}");
-let vault = JSON.parse(localStorage.getItem(VAULT_KEY) || "[]"); // {id, label, createdAt, code}
+let vault = JSON.parse(localStorage.getItem(VAULT_KEY) || "[]"); // {id,label,createdAt,code}
+let profiles = JSON.parse(localStorage.getItem(PROFILES_KEY) || "{}"); // id -> state
+let activeId = localStorage.getItem(ACTIVE_KEY) || "";
 
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); localStorage.setItem(COSTS_KEY, JSON.stringify(upgradeCosts)); }
 function saveVault(){ localStorage.setItem(VAULT_KEY, JSON.stringify(vault)); }
+function saveProfiles(){ localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles)); }
+function setActive(id){ activeId = id; localStorage.setItem(ACTIVE_KEY, id); document.getElementById("activeProfile").textContent = activeLabel(); }
+
+function activeLabel(){
+  if(!activeId) return "None";
+  const item = vault.find(v=>v.id===activeId);
+  return (item?.label || "Untitled") + " (profile)";
+}
 
 function fmt(n){
   if(!isFinite(n)) return "—";
@@ -191,6 +205,20 @@ function candidates(){
     out.push({id:"u-"+u.id,label:"Buy upgrade: "+u.name,type:"upgrade",cost,deltaCps:delta,paybackHours:pay,apply:(d)=>{const nd=JSON.parse(JSON.stringify(d)); nd.upgrades[i].purchased=true; return nd;}});
   }
   return out.sort((a,b)=>a.paybackHours-b.paybackHours);
+}
+
+// --- Heuristic decode helpers (optional) ---
+function previewDecode(raw){
+  try{
+    const t=raw.replace(/!END!$/i,"").replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
+    const decoded=atob(t);
+    // Try to sniff milk + buildings vector
+    let milk=null; const mm=decoded.match(/milk(?:Percent|Progress)?[=:]\s*([0-9]*\.?[0-9]+)/i); if(mm){ const m=Number(mm[1]); milk = m>1? m/100 : m; }
+    let vec=[]; const vm=decoded.match(/buildings?\s*[:=]\s*\[([^\]]+)\]/i) || decoded.match(/buildings?\s*[:=]\s*([0-9,;:\s]+)/i);
+    if(vm){ const inner=(vm[1]||vm[0]).replace(/[^0-9,;:\s]/g," "); vec=inner.split(/[,;:\s]+/).filter(Boolean).map(Number); }
+    const bmap={}; for(let i=0;i<Math.min(vec.length,BUILDING_ORDER.length);i++){ bmap[BUILDING_ORDER[i]]=vec[i]||0; }
+    return { decoded, milkPercent:milk, buildings:Object.keys(bmap).length?bmap:undefined };
+  }catch(e){ return { error: "Could not decode" }; }
 }
 
 // --- UI renderers ---
@@ -270,15 +298,19 @@ function renderUpgrades(){
   }
 }
 
-// --- Save Vault (raw TXT, no decode) ---
+// --- Vault & Profiles ---
 function openVault(){
   const v=document.getElementById("vault"); v.style.display="grid";
+  renderVault();
+}
+function renderVault(){
   const list=document.getElementById("vaultList"); list.innerHTML="";
   if(!vault.length){ list.innerHTML='<div class="small muted">No codes saved yet.</div>'; return; }
   for(const item of vault){
     const row=document.createElement("div"); row.className="vaultItem";
     const date=new Date(item.createdAt).toLocaleString();
     const label=item.label||"Untitled";
+    const hasProfile = !!profiles[item.id];
     row.innerHTML=`
       <div>
         <div><b>${label}</b> <span class="small muted">(${date})</span></div>
@@ -286,10 +318,29 @@ function openVault(){
       </div>
       <button class="btn" data-act="copy">Copy</button>
       <button class="btn" data-act="rename">Rename</button>
-      <button class="btn warn" data-act="del">Delete</button>`;
+      <button class="btn warn" data-act="del">Delete</button>
+      <button class="btn ${hasProfile?'alt':'ok'}" data-act="${hasProfile?'applyProfile':'saveProfile'}">${hasProfile?'Apply profile':'Save current as profile'}</button>
+      <button class="btn pri" data-act="decodeApply">Decode → Apply (beta)</button>
+    `;
     row.querySelector('[data-act="copy"]').onclick=()=>{ navigator.clipboard.writeText(item.code); row.querySelector('[data-act="copy"]').textContent="Copied!"; setTimeout(()=>row.querySelector('[data-act="copy"]').textContent="Copy",1200); };
-    row.querySelector('[data-act="rename"]').onclick=()=>{ const n=prompt("New label:", label)||label; item.label=n; saveVault(); openVault(); };
-    row.querySelector('[data-act="del"]').onclick=()=>{ if(confirm("Delete this saved code?")){ vault=vault.filter(x=>x.id!==item.id); saveVault(); openVault(); } };
+    row.querySelector('[data-act="rename"]').onclick=()=>{ const n=prompt("New label:", label)||label; item.label=n; saveVault(); renderVault(); };
+    row.querySelector('[data-act="del"]').onclick=()=>{ if(confirm("Delete this saved code?")){ vault=vault.filter(x=>x.id!==item.id); delete profiles[item.id]; saveVault(); saveProfiles(); renderVault(); } };
+    row.querySelector('[data-act="saveProfile"]').onclick=()=>{ profiles[item.id]=JSON.parse(JSON.stringify(state)); saveProfiles(); renderVault(); };
+    row.querySelector('[data-act="applyProfile"]').onclick=()=>{ if(!profiles[item.id]) return; state=JSON.parse(JSON.stringify(profiles[item.id])); save(); setActive(item.id); update(); };
+    row.querySelector('[data-act="decodeApply"]').onclick=()=>{
+      const prev = previewDecode(item.code);
+      if(prev && !prev.error){
+        // Apply minimal fields
+        if(prev.milkPercent!=null) state.milkPercent = prev.milkPercent;
+        if(prev.buildings){
+          state.buildings = state.buildings.map(b=>({...b, owned: Number(prev.buildings[b.id] ?? b.owned)||0 }));
+        }
+        save(); profiles[item.id]=JSON.parse(JSON.stringify(state)); saveProfiles(); setActive(item.id); update();
+        alert("Applied decoded milk/buildings to app and saved as this code's profile.");
+      }else{
+        alert("Couldn't decode this code. You can still 'Save current as profile' to link a manual setup to this code.");
+      }
+    };
     list.appendChild(row);
   }
 }
@@ -304,43 +355,31 @@ document.getElementById("closeM").onclick=()=>{ modal.style.display="none"; docu
 document.getElementById("saveRawM").onclick=()=>{
   const raw=(document.getElementById("importBox")).value.trim(); if(!raw){ alert("Paste a code first."); return; }
   const label=prompt("Label for this code? (optional)",""); 
-  vault.unshift({ id: crypto.randomUUID(), label: label||"", createdAt: Date.now(), code: raw });
+  const id=crypto.randomUUID();
+  vault.unshift({ id, label: label||"", createdAt: Date.now(), code: raw });
   saveVault();
   document.getElementById("preview").textContent="Saved to vault.";
 };
 document.getElementById("parseM").onclick=()=>{
   const raw=(document.getElementById("importBox")).value.trim();
-  let info=null, decoded=null, error=null;
-  try{ const obj=JSON.parse(raw); if(obj && obj.buildings && obj.upgrades){ info={type:"planner-json", ok:true, summary:"Planner JSON detected"}; } }catch{}
-  if(!info){
-    try{
-      const t=raw.replace(/!END!$/i,"").replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
-      decoded=atob(t);
-      // Minimal heuristic preview only (no auto-apply required for vault feature)
-      info={type:"cc-save", preview: decoded.slice(0,200) + (decoded.length>200?"…":"")};
-    }catch{ error="Could not decode. That's okay — use 'Save code' to store it without decoding."; }
-  }
-  const prev=document.getElementById("preview");
-  if(error){ prev.textContent=error; return; }
-  prev.textContent=JSON.stringify(info, null, 2);
+  try{ const obj=JSON.parse(raw); document.getElementById("preview").textContent = "Planner JSON detected. Use 'Apply planner JSON'."; return; }catch{}
+  const prev = previewDecode(raw);
+  if(prev.error){ document.getElementById("preview").textContent = "Could not decode. That's okay — save it to your vault and link a profile."; return; }
+  document.getElementById("preview").textContent = JSON.stringify({type:"cc-save", preview: prev.decoded.slice(0,200) + (prev.decoded.length>200?"…":""), milkPercent: prev.milkPercent, buildings: prev.buildings}, null, 2);
 };
-document.getElementById("applyM").onclick=()=>{
-  const prev=document.getElementById("preview");
-  if(!prev.textContent) return;
-  // For now, keep the same apply behavior as older standalone if JSON is pasted
+document.getElementById("applyPlannerM").onclick=()=>{
   const raw=(document.getElementById("importBox")).value.trim();
-  try{ const obj=JSON.parse(raw); state=obj; save(); update(); modal.style.display="none"; }catch{ alert("Only planner JSON can be applied directly here. To keep a code for later, use 'Save code'."); }
+  try{ const obj=JSON.parse(raw); state=obj; save(); update(); modal.style.display="none"; }catch{ alert("Paste a planner JSON export to apply. For Cookie Clicker codes, save to vault and use 'Decode → Apply (beta)' from the vault list."); }
 };
 
 // Existing buttons
 function update(){
-  document.getElementById("bank").value = state.bank;
+  document.getElementById("activeProfile").textContent = activeLabel();
   document.getElementById("milk").value = (state.milkPercent||0)*100;
   document.getElementById("extra").value = state.extraGlobalMultiplier;
   document.getElementById("totalCps").textContent = fmt(totalCps()) + " /s";
   renderTop3(); renderBuildings(); renderUpgrades();
 }
-document.getElementById("bank").oninput=e=>{ state.bank=Number(e.target.value||0); save(); update(); };
 document.getElementById("milk").oninput=e=>{ state.milkPercent=Math.max(0,Number(e.target.value||0))/100; save(); update(); };
 document.getElementById("extra").oninput=e=>{ state.extraGlobalMultiplier=Number(e.target.value||1); save(); update(); };
 document.getElementById("addB").onclick=()=>{ state.buildings.push({id:crypto.randomUUID(),name:"New Building",baseCost:1,baseCps:1,growth:1.15,owned:0,enabled:true}); save(); update(); };
@@ -352,10 +391,10 @@ document.getElementById("btnExport").onclick=()=>{
 document.getElementById("btnReset").onclick=()=>{
   if(!confirm("Reset all data?")) return;
   localStorage.removeItem(LS_KEY); localStorage.removeItem(COSTS_KEY);
-  state={ bank:0, extraGlobalMultiplier:1, milkPercent:0, buildings:DEFAULT_BUILDINGS, upgrades:STARTER_UPGRADES };
-  upgradeCosts={}; save(); update();
+  state=JSON.parse(JSON.stringify(EMPTY_STATE)); save(); update();
 };
 
+// initialize
 update();
 </script>
 </body>
